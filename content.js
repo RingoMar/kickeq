@@ -1,65 +1,37 @@
-const settings = {
-  volume: 20,
-  volumeIncrement: 3,
-  slowScroll: false,
-};
+var volumeIncrement = 5;
 
 function hasAudio(video) {
   return (
     video.mozHasAudio ||
-    Boolean(video.webkitAudioDecodedByteCount) ||
-    Boolean(video.audioTracks && video.audioTracks.length)
+    (video.webkitAudioDecodedByteCount &&
+      video.webkitAudioDecodedByteCount > 0) ||
+    (video.audioTracks && video.audioTracks.length > 0)
   );
 }
 
-const rinScroll = (element, video) => {
-  if (!hasAudio(video)) return; // No Audio no scroll
+function rinScroll(element, video) {
+  if (!hasAudio(video)) return;
 
-  let volume = video.volume * 100; //video.volume is a percentage, multiplied by 100 to get integer values
-  let direction = (event.deltaY / 100) * -1; //deltaY is how much the wheel scrolled, 100 up, -100 down. Divided by 100 to only get direction, then inverted
-  let increment = settings.volumeIncrement;
+  let direction = (event.deltaY / 100) * -1;
 
-  if (settings.slowScroll) {
-    if (direction === -1 && volume <= settings.volumeIncrement) {
-      increment = 1;
-    } else if (direction === 1 && volume < settings.volumeIncrement) {
-      increment = 1;
-    }
+  if (video.muted) {
+    video.muted = false;
+    video.volume = 0.1;
+  } else if (direction === -1) {
+    let volume = video.volume * 100 + direction * volumeIncrement;
+    video.volume = Math.max(0, volume / 100); // Ensure volume doesn't go below 0
+  } else {
+    let volume = video.volume * 100 + direction * volumeIncrement;
+    video.volume = Math.min(1, volume / 100); // Ensure volume doesn't go above 1
   }
 
-  volume += increment * direction;
 
-  if (volume > settings.volumeIncrement) {
-    //Rounding the volume to the nearest increment, in case the original volume was not on the increment
-    volume = volume / settings.volumeIncrement;
-    volume = Math.round(volume);
-    volume = volume * settings.volumeIncrement;
-  } else if (volume <= 0) {
-    // If the volume is zero or less, set it to the increment value
-    volume = settings.volumeIncrement;
-  }
-
-  volume = Math.round(volume);
-  volume = volume / 100;
-
-  //Limiting the volume to between 0-1
-  if (volume < 0) {
-    volume = 0;
-  } else if (volume > 1) {
-    volume = 1;
-  }
-
-  video.muted = volume <= 0;
-
-  video.volume = volume;
-  video.dataset.volume = volume;
-
-  let volPerc = Math.round(video.volume * 100);
+  let volPercent = Math.round(video.volume * 100);
   let volumeSliderDiv = document.querySelector("div.vjs-volume-level");
   if (volumeSliderDiv !== null) {
-    volumeSliderDiv.style.height = volPerc + "%";
+    volumeSliderDiv.style.height = volPercent + "%";
   }
-};
+}
 
 const onScroll = (event) => {
   let elements = document.elementsFromPoint(event.clientX, event.clientY);
